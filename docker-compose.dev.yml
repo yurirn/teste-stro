@@ -1,0 +1,71 @@
+version: "3.7"
+services:
+  #php with all project needed extensios
+  php:
+    build:
+      context: ./docker
+    image: phpdocker
+    container_name: dizimo-api
+    environment:
+      XDEBUG_MODE: "${XDEBUG_MODE}"
+    volumes:
+      - ".:/var/www/html/"
+      - "./storage/logs/xdebug:/tmp/xdebug"
+    depends_on:
+      - composerinstall
+    networks:
+      - dizimo_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway" #xdebug config
+
+  #nginx to hold all nginx server configs
+  nginx:
+    container_name: dizimo-nginx
+    build:
+      context: ./docker/nginx # The path of the Dockerfile
+    volumes:
+    - "./public:/var/www/html/public"
+    environment:
+      NGINX_FPM_HOST: php
+      NGINX_ROOT: /var/www/html/public
+    ports:
+      - "8000:80"
+    depends_on:
+      - php
+    networks:
+      - dizimo_network
+
+  loginit:
+    container_name: dizimo-log-init
+    build:
+      context: ./docker/nginx
+    depends_on:
+      - nginx
+    networks:
+      - dizimo_network
+    entrypoint: curl nginx
+
+  #mongodb container
+  mongo:
+    image: mongo:7.0-rc-jammy
+    container_name: dizimo-database
+    restart: on-failure
+    ports:
+      - "27017:27017"
+    volumes:
+      - "./storage/db-data:/data/db"
+    networks:
+      - dizimo_network
+
+  composerinstall:
+    container_name: dizimo-composer-install
+    build:
+        context: ./docker
+    volumes:
+      - ".:/var/www/html/"
+    command: composer install
+
+#network to hold backend/nginx/mongo
+networks:
+  dizimo_network:
+    driver: bridge

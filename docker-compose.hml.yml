@@ -1,0 +1,51 @@
+version: "3.7"
+services:
+  #php with all project needed extensios
+  php-dizimo-hml:
+    build:
+      context: ./docker
+    image: phpdocker
+    container_name: dizimo-api-hml
+    environment:
+      XDEBUG_MODE: "${XDEBUG_MODE}"
+    volumes:
+      - ".:/var/www/html/"
+      - "./storage/logs/xdebug:/tmp/xdebug"
+    depends_on:
+      - composerinstall-dizimo-hml
+    networks:
+      - dizimo_hml_network
+    extra_hosts:
+      - "host.docker.internal:host-gateway" #xdebug config
+    restart: unless-stopped
+
+  #nginx to hold all nginx server configs
+  nginx-dizimo-hml:
+    container_name: dizimo-nginx-hml
+    build:
+      context: ./docker/nginx # The path of the Dockerfile
+    volumes:
+    - "./public:/var/www/html/public"
+    environment:
+      NGINX_FPM_HOST: php-dizimo-hml
+      NGINX_ROOT: /var/www/html/public
+    ports:
+      - "8001:80"
+    depends_on:
+      - php-dizimo-hml
+    networks:
+      - dizimo_hml_network
+    restart: unless-stopped
+
+  composerinstall-dizimo-hml:
+    container_name: dizimo-composer-install-hml
+    build:
+        context: ./docker
+    volumes:
+      - ".:/var/www/html/"
+    command: composer install
+
+#network to hold backend/nginx/mongo
+networks:
+  dizimo_hml_network:
+    driver: bridge
